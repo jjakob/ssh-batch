@@ -1,0 +1,88 @@
+#!/usr/bin/env expect
+# Copyright 2024 Jernej Jakob <jernej.jakob@gmail.com>
+
+proc usage {} {
+	global argv0
+	send_error "usage: $argv0 \[-v\] PROMPTGLOBFILE COMMANDFILE SSHARG \[SSHARG\]...\n"
+	send_error "Execute ssh with SSHARGs and wait for the prompt defined in PROMPTGLOBFILE\n"
+	send_error "before executing commands in COMMANDFILE.\n\n"
+	send_error "  -v:             verbose (print all ssh interaction)\n"
+	send_error "  PROMPTGLOBFILE: file with glob that matches expected prompt line\n"
+	send_error "                  (only one line with Tcl \"string match\" pattern)\n"
+	send_error "  COMMANDFILE:    file with list of commands to execute, one command per line\n"
+	send_error "                  (can contain comments and empty lines)\n"
+	send_error "  SSHARG:         one or more ssh arguments (connection string, batch mode ...)\n"
+}
+
+proc expect_prompt {} {
+	global verbose n cmd prompt
+	expect {
+		{\? $}	{
+				if {$verbose} {
+					interact \r { send \n; return }
+				} else {
+					send_error "Error: ssh host key not known and not in verbose mode\n"
+					send_error "Run again with -v\n"
+					exit 1
+				}
+				exp_continue
+			}
+		eof		{ send_error "Error: EOF, current command (#$n): $cmd\n"; exit 1 }
+		timeout		{ send_error "Error: timeout, current command (#$n): $cmd\n"; exit 1 }
+		$prompt
+	}
+}
+
+set verbose 0
+log_user 0
+
+set i 0
+set j 0
+foreach arg $argv {
+	if {$j != 2} {
+		switch -glob -- $arg {
+			-v	{ set verbose 1; log_user 1 }
+			-*	{ usage; exit 1 }
+			default {
+				switch $j {
+					0 {
+						set promptfh [open $arg r]
+						set prompt [read -nonewline $promptfh]
+						close $promptfh
+						}
+					1 { set cmdfile $arg }
+				}
+				incr j
+			}
+		}
+	} else {
+		set sshargs [lrange $argv $i end]
+		break
+	}
+	incr i
+}
+
+if {$argc < 3} { usage; exit 1 }
+
+if {[string length $prompt] == 0} { send_error "Error: PROMPTGLOB null\n"; usage; exit 1 }
+if {[string length $cmdfile] == 0} { send_error "Error: COMMANDFILE null\n"; usage; exit 1 }
+if {[string length $sshargs] == 0} { send_error "Error: SSHARGs null\n"; usage; exit 1 }
+
+set cmdfh [ open $cmdfile r ]
+spawn ssh {*}$sshargs
+set n 0
+while { ! [eof $cmdfh] } {
+	gets $cmdfh cmd
+	switch -glob -- $cmd {
+		"" -
+		#* continue
+	}
+
+	expect_prompt
+	incr n
+	send "$cmd\n"
+}
+
+expect_prompt
+
+send_error "\n\nSuccess, sent $n commands\n"
