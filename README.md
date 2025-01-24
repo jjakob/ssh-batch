@@ -86,10 +86,15 @@ root@host:~# cat > /etc/systemd/system/ssh-batch@.service <<-'EOF'
 	Description=Run a batch of commands via SSH
 	After=network-online.target
 	Wants=network-online.target
+	StartLimitIntervalSec=1m
+	StartLimitBurst=6
 	
 	[Service]
 	Type=oneshot
 	RemainAfterExit=true
+	Restart=on-failure
+	RestartSec=10s
+
 	# add -v if you want the entire ssh session to be logged in the journal
 	ExecStart=ssh-batch "%E/%p/%i_prompt" "%E/%p/%i" -o BatchMode=yes "%i"
 	
