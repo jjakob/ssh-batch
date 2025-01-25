@@ -1,5 +1,5 @@
 #!/usr/bin/env expect
-# Copyright 2024 Jernej Jakob <jernej.jakob@gmail.com>
+# Copyright 2024-2025 Jernej Jakob <jernej.jakob@gmail.com>
 
 proc usage {} {
 	global argv0
