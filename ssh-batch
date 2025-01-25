@@ -17,14 +17,16 @@ proc usage {} {
 proc expect_prompt {} {
 	global verbose n cmd prompt
 	expect {
-		{\? $}	{
+		-re {(?:\?|word:) $}	{
 				if {$verbose} {
+					set timeout 120
 					interact \r { send \n; return }
 				} else {
 					send_error "Error: ssh host key not known and not in verbose mode\n"
 					send_error "Run again with -v\n"
 					exit 1
 				}
+				set timeout 10
 				exp_continue
 			}
 		eof		{ send_error "Error: EOF, current command (#$n): $cmd\n"; exit 1 }
